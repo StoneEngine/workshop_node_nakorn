@@ -1,34 +1,47 @@
-import bcrypt from 'bcrypt' // Hash Password จะมีส่วนการใช้ CPU ที่สูงมาก
-import express from 'express' // Backend สำหรับทดสอบ
+import bcrypt from 'bcryptjs';
+import express from 'express';
 
-const app = express()
-const totalText = 100
-const salt = 10
+const app = express();
+const totalText = 150; // กูขอลดเหลือ 10 นะ เดี๋ยวคอมมึงค้าง
+const salt = 10;
 
-// ได้ผลลัพธ์เร็วกว่า: http://localhost:3000/test-async
+// === Test Async (Non-blocking จำลอง) ===
+// http://localhost:3000/test-async
 app.get('/test-async', async (req, res) => {
-  const start = Date.now() // สร้างเวลาเริ่มต้น
-  const jobs = []
-  for (let i = 0; i < totalText; i++) {
-    jobs.push(bcrypt.hash('password123', salt)) // แทรก Jobs ที่จะรัน Promise
-  }
-  const results = await Promise.all(jobs) // Non-blocking I/O ด้วยการใช้ Promise.all()
-  const end = Date.now() // สร้างเวลาที่เสร็จสิ้น
-  res.send({ time: end - start, results }) // แสดงผลลัพธ์และเวลาที่รัน
-})
+  console.log('Processing Async...');
+  const start = Date.now();
+  const jobs = [];
 
-// เขียนง่ายกว่า ไม่ต้องรู้จักการใช้ Callback, Promise ก็ทำเป็น แต่รันนานกว่ามาก: http://localhost:3000/test-sync
-app.get('/test-sync', (req, res) => {
-  const start = Date.now()
-  const results = []
   for (let i = 0; i < totalText; i++) {
-    const result = bcrypt.hashSync('password123', salt) // ใช้แบบ Sync ที่ต้องรอรันจนเสร็จก่อนที่จะรันต่อ
-    results.push(result)
+    // bcryptjs แบบ async มันจะพยายาม yield ให้ event loop บ้าง
+    jobs.push(bcrypt.hash('password123', salt));
   }
-  const end = Date.now()
-  res.send({ time: end - start, results })
-})
+
+  const results = await Promise.all(jobs);
+
+  const end = Date.now();
+  console.log(`Async finished: ${end - start}ms`);
+  res.send({ mode: 'Async', time: end - start, count: results.length });
+});
+
+// === Test Sync (Blocking นรกแตก) ===
+// http://localhost:3000/test-sync
+app.get('/test-sync', (req, res) => {
+  console.log('Processing Sync...');
+  const start = Date.now();
+  const results = [];
+
+  for (let i = 0; i < totalText; i++) {
+    // ตรงนี้แหละที่ Server จะเป็นอัมพาตจนกว่าจะวนลูปครบ
+    const result = bcrypt.hashSync('password123', salt);
+    results.push(result);
+  }
+
+  const end = Date.now();
+  console.log(`Sync finished: ${end - start}ms`);
+  res.send({ mode: 'Sync', time: end - start, count: results.length });
+});
 
 app.listen(3000, () => {
-  console.log('Server listening on port 3000')
-})
+  console.log('Server is running on port 3000');
+});

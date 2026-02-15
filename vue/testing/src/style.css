@@ -1,9 +1,0 @@
-@import "tailwindcss";
-
-h2 {
-  @apply text-2xl font-bold mb-3;
-}
-
-hr {
-  @apply my-4;
-}
